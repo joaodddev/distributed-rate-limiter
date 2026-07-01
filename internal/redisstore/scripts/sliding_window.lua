@@ -11,14 +11,13 @@ local now_ms = tonumber(ARGV[3])
 local n = tonumber(ARGV[4])
 
 local cutoff = now_ms - window_ms
+local seq_key = key .. ":seq"
 
--- remove entradas fora da janela (sliding window log)
 redis.call("ZREMRANGEBYSCORE", key, "-inf", cutoff)
 
 local count = redis.call("ZCARD", key)
 
 if count + n > limit then
-  -- pega a entrada mais antiga pra calcular retry_after
   local oldest = redis.call("ZRANGE", key, 0, 0, "WITHSCORES")
   local retry_after_ms = 0
   if #oldest > 0 then
@@ -29,14 +28,15 @@ if count + n > limit then
   return {0, limit - count, retry_after_ms}
 end
 
--- adiciona n entradas com score = timestamp atual
--- usa um member único por entrada (timestamp + índice) pra evitar colisão
+-- INCR garante um sufixo único por entrada, mesmo quando múltiplas
+-- chamadas concorrentes caem no mesmo timestamp (mesmo milissegundo).
 for i = 1, n do
-  redis.call("ZADD", key, now_ms, now_ms .. "-" .. i)
+  local seq = redis.call("INCR", seq_key)
+  redis.call("ZADD", key, now_ms, now_ms .. "-" .. seq)
 end
 
--- expira a chave automaticamente após a janela (evita memory leak no Redis)
 redis.call("PEXPIRE", key, window_ms)
+redis.call("PEXPIRE", seq_key, window_ms)
 
 local remaining = limit - (count + n)
 return {1, remaining, 0}
