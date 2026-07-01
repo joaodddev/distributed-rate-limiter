@@ -2,20 +2,20 @@ package ratelimiter
 
 import (
 	"context"
+	"sync"
 	"time"
 )
 
 // SlidingWindowLimiter implementa rate limiting usando o algoritmo
 // sliding window log: mantém um timestamp por requisição dentro da janela.
 type SlidingWindowLimiter struct {
+	mu     sync.Mutex
 	limit  int64
 	window time.Duration
 	log    map[string][]time.Time
 	now    func() time.Time
 }
 
-// NewSlidingWindowLimiter cria um limiter que permite até `limit`
-// requisições por `window` de tempo.
 func NewSlidingWindowLimiter(limit int64, window time.Duration) *SlidingWindowLimiter {
 	return &SlidingWindowLimiter{
 		limit:  limit,
@@ -30,6 +30,9 @@ func (l *SlidingWindowLimiter) Allow(ctx context.Context, key string) (Result, e
 }
 
 func (l *SlidingWindowLimiter) AllowN(ctx context.Context, key string, n int64) (Result, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
 	now := l.now()
 	cutoff := now.Add(-l.window)
 
