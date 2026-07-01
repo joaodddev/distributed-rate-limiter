@@ -14,3 +14,8 @@ bench:
 
 run:
 	go run ./cmd/server
+
+test-integration:
+	docker-compose up -d
+	go test ./... -tags=integration -v
+	docker-compose down
