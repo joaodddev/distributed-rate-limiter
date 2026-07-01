@@ -1,0 +1,17 @@
+[
+  {
+    "label": "go: test all",
+    "command": "go test ./... -v",
+    "use_new_terminal": false,
+  },
+  {
+    "label": "go: bench",
+    "command": "go test ./bench/... -bench=. -benchmem -cpuprofile=cpu.prof",
+    "use_new_terminal": false,
+  },
+  {
+    "label": "docker: up redis",
+    "command": "docker-compose up -d",
+    "use_new_terminal": false,
+  },
+]
