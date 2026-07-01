@@ -2,6 +2,7 @@ package ratelimiter
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 )
@@ -95,4 +96,28 @@ func TestSlidingWindowLimiter_AllowN_Burst(t *testing.T) {
 	if res.Allowed {
 		t.Fatal("request after exact burst should be denied")
 	}
+}
+
+func TestSlidingWindowLimiter_ConcurrentAccess(t *testing.T) {
+	l := NewSlidingWindowLimiter(1000, time.Second)
+	ctx := context.Background()
+
+	var wg sync.WaitGroup
+	goroutines := 100
+	requestsPerGoroutine := 20
+
+	for i := 0; i < goroutines; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < requestsPerGoroutine; j++ {
+				_, err := l.Allow(ctx, "shared-key")
+				if err != nil {
+					t.Errorf("unexpected error under concurrency: %v", err)
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
 }
